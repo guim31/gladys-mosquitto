@@ -253,10 +253,26 @@ Docker, avec fichier de mots de passe et ACL (captures dans `test/fixtures/sys/`
 - Après la rafale initiale, Mosquitto ne republie **que les valeurs qui changent** (une
   `clients/maximum` n'apparaît qu'au premier changement) : la découverte attend 2 s après le dernier
   sujet nouveau, et le battement de cœur (6 h) vient du cache du SDK, pas du broker.
+- **Mosquitto 1.6 réel** : à l'abonnement, seuls une partie des sujets arrivent (pas
+  `load/publish/received/1min` ni `clients/disconnected` quand ils valent 0 depuis longtemps) ; ils
+  viennent à leur premier changement, et l'appareil déjà ajouté se complète par « Mettre à jour ».
+  La capture `mosquitto-1.6.15.txt`, prise au démarrage du broker, les contient tous.
 - `heap/*` absent de l'image 1.6 ; `heap/current size` (1.4 et avant) est lu comme `heap/current`.
   Les valeurs sont du texte : `"169 seconds"`, `"83.45"`, `"mosquitto version 2.1.2"`.
-- `load/*/1min` sont des moyennes glissantes **par minute** : messages publiés par minute (pas
-  d'unité Gladys, elle est dans le nom), octets convertis en octets par seconde.
+- `load/*/1min` sont des moyennes glissantes **par minute**. **`load/messages/*` compte tous les
+  paquets MQTT** (PINGREQ, SUBSCRIBE, PUBACK…) : 83 « messages » pour 26 PUBLISH dans la capture 2.1.
+  Les fonctionnalités « Messages » lisent donc `load/publish/received|sent/1min` (présents en 1.6
+  aussi). Octets convertis en octets par seconde.
+- **mqtt.js ne se reconnecte plus après un CONNACK en erreur** (mauvais mot de passe, serveur
+  indisponible) sauf avec `reconnectOnConnackError: true` : sans lui, corriger Mosquitto ne suffisait
+  pas, il fallait réenregistrer la configuration. Il passe `offline` avant chaque nouvel essai :
+  l'état `refused` n'est pas écrasé par `unreachable` (sinon il clignote).
+- Une connexion refusée n'est **pas une panne** : « Joignable » reste à 1 (le broker répond) et
+  « Broker injoignable » ne part pas. Sans statistiques vivantes (`denied`, `refused`), seul
+  « Joignable » est publié : les chiffres vieillissent dans Gladys au lieu d'être republiés frais.
+- `configure()` capture sa génération **avant** tout `await` (lecture de `/data/client-id`) : sans
+  cela, deux appels au démarrage ouvraient deux clients au même identifiant, que Mosquitto
+  déconnectait tour à tour. Le `getConfig()` initial cède devant un `onConfigUpdated` arrivé pendant.
 - `clients/connected` **compte l'intégration** : pas de seuil « moins de 1 » ; le déclencheur exige
   une minute sous le seuil (`CONFIRM_MS`) pour ignorer les reconnexions Wi-Fi.
 - Redémarrage détecté par une **baisse de `uptime`** ; après un changement d'adresse du broker, le

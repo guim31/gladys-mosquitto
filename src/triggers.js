@@ -14,8 +14,9 @@
 // itself restarted (or crashed), even if no outage was seen.
 // `clients_below` — fewer than N connected clients for CONFIRM_MS (a sensor,
 // a bridge or Zigbee2MQTT that dropped). Re-armed when the count is back.
-// `messages_above` — more than N messages received per minute (a device in a
-// loop, a flood): once per crossing, at most once per QUIET_PERIOD_MS.
+// `messages_above` — more than N messages published to the broker per minute
+// (a device in a loop, a flood): once per crossing, at most once per
+// QUIET_PERIOD_MS (a crossing within it is reported when it ends).
 //
 // After a restart of the integration, the first values are a baseline: a
 // count already below a threshold fires nothing (it would re-run every scene).
@@ -152,9 +153,11 @@ export function createTriggerTracker({ now = () => Date.now() } = {}) {
         if (!messagesArmed.has(threshold)) {
           continue;
         }
-        messagesArmed.delete(threshold);
+        // Within the quiet period the threshold stays armed: a flood still
+        // going on when it ends is reported then.
         const last = messagesFiredAt.get(threshold);
         if (last === undefined || at - last >= QUIET_PERIOD_MS) {
+          messagesArmed.delete(threshold);
           messagesFiredAt.set(threshold, at);
           fired.push(threshold);
         }
@@ -164,9 +167,10 @@ export function createTriggerTracker({ now = () => Date.now() } = {}) {
 
     /**
      * The clock ticked: outage durations, clients still below.
+     * @param {{ live?: boolean }} [options] the statistics are live
      * @returns {{ unreachable: number[], offlineMinutes: number, clients: number[] }}
      */
-    onTick() {
+    onTick({ live = true } = {}) {
       const at = now();
       const unreachable = [];
       let offlineMinutes = 0;
@@ -182,7 +186,8 @@ export function createTriggerTracker({ now = () => Date.now() } = {}) {
       return {
         unreachable,
         offlineMinutes,
-        clients: downSince === null ? checkClients() : [],
+        // Without live statistics the last count is stale: no drop to confirm.
+        clients: downSince === null && live ? checkClients() : [],
       };
     },
 

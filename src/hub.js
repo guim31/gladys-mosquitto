@@ -58,6 +58,7 @@ export class MosquittoHub {
     this.connectMqtt = connectMqtt;
     this.loadClientId = loadClientId;
     this.clientId = null;
+    this.clientIdLoading = null;
     this.timings = { ...DEFAULT_TIMINGS, ...timings };
     this.issues = createIssueLog(logger);
     this.triggers = createTriggerTracker({ now });
@@ -80,6 +81,8 @@ export class MosquittoHub {
   async configure(config) {
     this.stopClient();
     this.generation += 1;
+    // Captured before any await: a newer configure() wins, this one gives up.
+    const generation = this.generation;
     const previous = this.config?.broker_url ?? null;
     this.config = config;
     // Sent again after a reconnection: Gladys may have restarted.
@@ -96,15 +99,20 @@ export class MosquittoHub {
       return;
     }
     if (this.clientId === null) {
-      const { clientId, persisted } = await this.loadClientId();
-      this.clientId = clientId;
-      if (!persisted) {
-        logger.warn('/data is not writable: the MQTT client id changes at each start');
-      }
+      // One read of /data, shared by overlapping calls.
+      this.clientIdLoading ??= this.loadClientId().then(({ clientId, persisted }) => {
+        if (!persisted) {
+          logger.warn('/data is not writable: the MQTT client id changes at each start');
+        }
+        return clientId;
+      });
+      this.clientId = await this.clientIdLoading;
+    }
+    if (generation !== this.generation) {
+      return;
     }
     const url = safeUrl(config.broker_url);
     logger.info(`Watching Mosquitto at ${url} (client id ${this.clientId})`);
-    const generation = this.generation;
     this.client = createBrokerClient({
       url: config.broker_url,
       username: config.username,
@@ -152,13 +160,18 @@ export class MosquittoHub {
     this.publishTimer = null;
   }
 
-  /** The broker answers (connected or connected without `$SYS`), or null before the first try. */
+  /**
+   * The broker answers (statistics, no `$SYS` rights, or credentials refused:
+   * a login problem is not an outage), or null before the first try.
+   */
   reachable() {
     const state = this.client?.state ?? null;
-    if (state === null) {
-      return null;
-    }
-    return state === 'connected' || state === 'denied';
+    return state === null ? null : state !== 'unreachable';
+  }
+
+  /** The statistics are live: anything else only publishes "Reachable". */
+  live() {
+    return this.client?.state === 'connected';
   }
 
   async onLinkState(state, detail) {
@@ -203,6 +216,8 @@ export class MosquittoHub {
     let message = null;
     if (!config || !isConfigured(config)) {
       message = MESSAGES.notConfigured;
+    } else if (this.issues.isFailing('discovery')) {
+      message = MESSAGES.publishFailed;
     } else if (state === 'refused') {
       message = MESSAGES.refused;
     } else if (state === 'unreachable') {
@@ -270,7 +285,7 @@ export class MosquittoHub {
 
   /** The clock: outages, clients still below a threshold. */
   async tick() {
-    const { unreachable, offlineMinutes, clients } = this.triggers.onTick();
+    const { unreachable, offlineMinutes, clients } = this.triggers.onTick({ live: this.live() });
     for (const minutes of unreachable) {
       await this.fireScene(TRIGGER.BROKER_UNREACHABLE, {
         after_minutes: String(minutes),
@@ -325,15 +340,10 @@ export class MosquittoHub {
     try {
       await this.gladys.publishDiscoveredDevices(this.discoveredDevices());
       this.issues.ok('discovery', 'Gladys accepts the broker device again');
-      if (this.status === 'publish-failed') {
-        this.status = null;
-        await this.updateStatus();
-      }
     } catch (err) {
       this.issues.fail('discovery', `Publishing the broker device failed: ${err.message}`);
-      await this.gladys.setConnectionStatus(false, MESSAGES.publishFailed).catch(() => {});
-      this.status = 'publish-failed';
     }
+    await this.updateStatus();
   }
 
   /** Publish soon: at most once per publishMinMs. */
@@ -356,11 +366,10 @@ export class MosquittoHub {
     }
     this.lastPublishAt = this.now();
     const data = this.data();
-    // Unreachable: only "Reachable" changes, the numbers keep their last value.
-    const states = buildStates(
-      this.gladys,
-      data.reachable === false ? { ...data, stats: {} } : data,
-    );
+    // Not live (outage, no `$SYS` rights): only "Reachable" changes, the
+    // numbers keep their last value and age in Gladys instead of being
+    // republished as fresh by the heartbeat.
+    const states = buildStates(this.gladys, this.live() ? data : { ...data, stats: {} });
     if (states.length === 0) {
       return;
     }
@@ -426,6 +435,10 @@ export class MosquittoHub {
       const text = REPORT_TEXT[lang];
       if (state === 'refused') {
         report[lang] = text.refused(url);
+        continue;
+      }
+      if (state === null) {
+        report[lang] = text.pending(url);
         continue;
       }
       if (state !== 'connected') {

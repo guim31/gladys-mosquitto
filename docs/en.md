@@ -37,7 +37,7 @@ user gladys
 topic read $SYS/#
 ```
 
-Replace `gladys` with your user name. Without them, Mosquitto accepts the connection but sends no
+For anonymous access, put `topic read $SYS/#` at the top of the file, before any `user` line. Replace `gladys` with your user name. Without them, Mosquitto accepts the connection but sends no
 statistics: the integration page then shows the exact lines to add. Without an ACL file, every user
 can read `$SYS`.
 
@@ -66,11 +66,11 @@ Gladys restarts.
 
 | Feature                         | Meaning                                                                  |
 | ------------------------------- | ------------------------------------------------------------------------ |
-| Reachable                       | 1 while the integration is connected to the broker, 0 otherwise          |
+| Reachable                       | 1 while the broker answers (even if it refuses the login), 0 otherwise   |
 | Connected clients               | Clients connected right now, **this integration included**               |
 | Disconnected persistent clients | Clients with a persistent session (`clean session` off) that are offline |
-| Messages received (/min)        | Messages received by the broker per minute (1-minute moving average)     |
-| Messages sent (/min)            | Messages sent by the broker per minute                                   |
+| Messages received (/min)        | Messages published to the broker per minute (1-minute moving average)    |
+| Messages sent (/min)            | Messages delivered by the broker to subscribers per minute               |
 | Incoming traffic                | Bytes received per second (1-minute moving average)                      |
 | Outgoing traffic                | Bytes sent per second                                                    |
 | Subscriptions                   | Active subscriptions                                                     |
@@ -79,7 +79,7 @@ Gladys restarts.
 | Version                         | Version of Mosquitto, as text                                            |
 | Memory used                     | Memory used by Mosquitto, when it reports it (not the 1.6 Docker image)  |
 
-A feature only exists if Mosquitto publishes its topic: some builds have no memory figure. When the
+A feature only exists if Mosquitto publishes its topic: some builds have no memory figure. Mosquitto 1.6 sends some figures only once they change: such a feature appears later, and the Discovery tab then offers to update the device. When the
 broker cannot be reached, **Reachable** goes to 0 and the other features keep their last value.
 
 Mosquitto refreshes its statistics every `sys_interval` seconds; Gladys receives the changed values
@@ -94,7 +94,7 @@ received and sent per minute, subscriptions. Pick the broker in the widget setti
 ## Scene triggers
 
 - **Broker unreachable**: the broker has been unreachable for 1, 5, 15, 30 or 60 minutes (to choose).
-  A restart of a few seconds fires nothing. Variable: the number of minutes.
+  A restart of a few seconds fires nothing, nor does a refused login. Variable: the number of minutes.
 - **Broker back**: the broker answers again after an outage of at least one minute. Variable: the
   duration of the outage.
 - **Broker restarted**: the uptime of Mosquitto went back to zero. It restarted (update, reboot) or
@@ -102,8 +102,8 @@ received and sent per minute, subscriptions. Pick the broker in the widget setti
 - **Fewer connected clients**: fewer clients than the chosen number (2 to 100) for one minute: a
   sensor, a bridge or Zigbee2MQTT dropped. Fires once, and again only after the count came back.
   Remember that the integration counts as one client.
-- **Message spike**: more messages received per minute than the chosen number (100 to 50,000): a
-  device in a loop, a flood. At most once every 30 minutes per threshold.
+- **Message spike**: more messages published per minute than the chosen number (100 to 50,000): a
+  device in a loop, a flood. At most once every 30 minutes per threshold; a flood still going on after 30 minutes is reported again.
 
 ## Scene action
 

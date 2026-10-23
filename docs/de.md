@@ -37,7 +37,7 @@ user gladys
 topic read $SYS/#
 ```
 
-Ersetze `gladys` durch deinen Benutzernamen. Ohne sie nimmt Mosquitto die Verbindung an, sendet aber
+Für anonymen Zugang setze `topic read $SYS/#` an den Anfang der Datei, vor jede `user`-Zeile. Ersetze `gladys` durch deinen Benutzernamen. Ohne sie nimmt Mosquitto die Verbindung an, sendet aber
 keine Statistiken: Die Seite der Integration zeigt dann genau die Zeilen, die fehlen. Ohne ACL-Datei
 darf jeder Benutzer `$SYS` lesen.
 
@@ -66,11 +66,11 @@ getrennten persistenten Clients, wenn Gladys neu startet.
 
 | Funktion                      | Bedeutung                                                                       |
 | ----------------------------- | ------------------------------------------------------------------------------- |
-| Erreichbar                    | 1, solange die Integration mit dem Broker verbunden ist, sonst 0                |
+| Erreichbar                    | 1, solange der Broker antwortet (auch wenn er die Anmeldung ablehnt), sonst 0   |
 | Verbundene Clients            | Jetzt verbundene Clients, **diese Integration eingeschlossen**                  |
 | Getrennte persistente Clients | Clients mit persistenter Sitzung (`clean session` aus), die offline sind        |
-| Empfangene Nachrichten (/min) | Vom Broker empfangene Nachrichten pro Minute (gleitender Mittelwert, 1 Minute)  |
-| Gesendete Nachrichten (/min)  | Vom Broker gesendete Nachrichten pro Minute                                     |
+| Empfangene Nachrichten (/min) | An den Broker veröffentlichte Nachrichten pro Minute (gleitender Mittelwert)    |
+| Gesendete Nachrichten (/min)  | Vom Broker an Abonnenten zugestellte Nachrichten pro Minute                     |
 | Eingehender Datenverkehr      | Empfangene Bytes pro Sekunde (gleitender Mittelwert, 1 Minute)                  |
 | Ausgehender Datenverkehr      | Gesendete Bytes pro Sekunde                                                     |
 | Abonnements                   | Aktive Abonnements                                                              |
@@ -80,7 +80,7 @@ getrennten persistenten Clients, wenn Gladys neu startet.
 | Belegter Speicher             | Von Mosquitto belegter Speicher, wenn er ihn meldet (nicht im 1.6-Docker-Image) |
 
 Eine Funktion gibt es nur, wenn Mosquitto ihr Topic veröffentlicht: Manche Builds haben keine
-Speicherangabe. Ist der Broker nicht erreichbar, geht **Erreichbar** auf 0 und die anderen Funktionen
+Speicherangabe. Mosquitto 1.6 sendet manche Zahlen erst, wenn sie sich ändern: Eine solche Funktion erscheint später, und der Tab „Erkennung“ bietet dann an, das Gerät zu aktualisieren. Ist der Broker nicht erreichbar, geht **Erreichbar** auf 0 und die anderen Funktionen
 behalten ihren letzten Wert.
 
 Mosquitto aktualisiert seine Statistiken alle `sys_interval` Sekunden; Gladys bekommt geänderte Werte
@@ -96,7 +96,7 @@ Einstellungen des Widgets.
 ## Szenen-Auslöser
 
 - **Broker nicht erreichbar**: Der Broker ist seit 1, 5, 15, 30 oder 60 Minuten (wählbar) nicht
-  erreichbar. Ein Neustart von wenigen Sekunden löst nichts aus. Variable: die Anzahl der Minuten.
+  erreichbar. Ein Neustart von wenigen Sekunden löst nichts aus, eine abgelehnte Anmeldung auch nicht. Variable: die Anzahl der Minuten.
 - **Broker wieder da**: Der Broker antwortet wieder nach einem Ausfall von mindestens einer Minute.
   Variable: die Dauer des Ausfalls.
 - **Broker neu gestartet**: Die Laufzeit von Mosquitto ist auf null zurückgegangen. Er wurde neu
@@ -105,8 +105,8 @@ Einstellungen des Widgets.
 - **Weniger verbundene Clients**: weniger Clients als die gewählte Zahl (2 bis 100) während einer
   Minute: Ein Sensor, eine Bridge oder Zigbee2MQTT ist weg. Löst einmal aus, und erst wieder, wenn die
   Zahl zurück ist. Denk daran, dass die Integration als ein Client zählt.
-- **Nachrichtenspitze**: mehr empfangene Nachrichten pro Minute als die gewählte Zahl (100 bis
-  50.000): ein Gerät in einer Schleife, eine Flut. Höchstens einmal alle 30 Minuten pro Schwelle.
+- **Nachrichtenspitze**: mehr veröffentlichte Nachrichten pro Minute als die gewählte Zahl (100 bis
+  50.000): ein Gerät in einer Schleife, eine Flut. Höchstens einmal alle 30 Minuten pro Schwelle; eine Flut, die nach 30 Minuten noch anhält, wird erneut gemeldet.
 
 ## Szenen-Aktion
 

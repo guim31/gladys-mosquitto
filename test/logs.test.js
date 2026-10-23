@@ -42,7 +42,7 @@ test('a normal cycle writes nothing at info level', async (t) => {
   const lines = captureLogs(t, 'info');
   for (let i = 1; i <= 30; i += 1) {
     world.broker.sys('uptime', `${169 + 10 * i} seconds`);
-    world.broker.sys('load/messages/received/1min', String(60 + i));
+    world.broker.sys('load/publish/received/1min', String(60 + i));
     world.broker.sys('clients/connected', String(2 + (i % 3)));
     await tick(t, 10 * SECOND);
   }

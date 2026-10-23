@@ -37,7 +37,7 @@ user gladys
 topic read $SYS/#
 ```
 
-Remplacez `gladys` par votre nom d'utilisateur. Sans elles, Mosquitto accepte la connexion mais
+Pour l'accès anonyme, placez `topic read $SYS/#` en tête du fichier, avant toute ligne `user`. Remplacez `gladys` par votre nom d'utilisateur. Sans elles, Mosquitto accepte la connexion mais
 n'envoie aucune statistique : la page de l'intégration affiche alors les lignes exactes à ajouter.
 Sans fichier ACL, tous les utilisateurs peuvent lire `$SYS`.
 
@@ -66,11 +66,11 @@ clients persistants déconnectés quand Gladys redémarre.
 
 | Fonctionnalité                  | Signification                                                                     |
 | ------------------------------- | --------------------------------------------------------------------------------- |
-| Joignable                       | 1 tant que l'intégration est connectée au broker, 0 sinon                         |
+| Joignable                       | 1 tant que le broker répond (même s'il refuse la connexion), 0 sinon              |
 | Clients connectés               | Clients connectés en ce moment, **cette intégration comprise**                    |
 | Clients persistants déconnectés | Clients à session persistante (`clean session` désactivé) hors ligne              |
-| Messages reçus (/min)           | Messages reçus par le broker par minute (moyenne glissante sur 1 minute)          |
-| Messages envoyés (/min)         | Messages envoyés par le broker par minute                                         |
+| Messages reçus (/min)           | Messages publiés sur le broker par minute (moyenne glissante sur 1 minute)        |
+| Messages envoyés (/min)         | Messages remis par le broker aux abonnés par minute                               |
 | Trafic entrant                  | Octets reçus par seconde (moyenne glissante sur 1 minute)                         |
 | Trafic sortant                  | Octets envoyés par seconde                                                        |
 | Abonnements                     | Abonnements actifs                                                                |
@@ -80,7 +80,7 @@ clients persistants déconnectés quand Gladys redémarre.
 | Mémoire utilisée                | Mémoire utilisée par Mosquitto, quand il la publie (pas l'image Docker de la 1.6) |
 
 Une fonctionnalité n'existe que si Mosquitto publie son sujet : certaines compilations n'ont pas de
-chiffre de mémoire. Quand le broker est injoignable, **Joignable** passe à 0 et les autres
+chiffre de mémoire. Mosquitto 1.6 n'envoie certains chiffres qu'à leur premier changement : la fonctionnalité apparaît alors plus tard, et l'onglet Découverte propose de mettre l'appareil à jour. Quand le broker est injoignable, **Joignable** passe à 0 et les autres
 fonctionnalités gardent leur dernière valeur.
 
 Mosquitto rafraîchit ses statistiques toutes les `sys_interval` secondes ; Gladys reçoit les valeurs
@@ -96,7 +96,7 @@ réglages du widget.
 ## Déclencheurs de scène
 
 - **Broker injoignable** : le broker est injoignable depuis 1, 5, 15, 30 ou 60 minutes (au choix). Un
-  redémarrage de quelques secondes ne déclenche rien. Variable : le nombre de minutes.
+  redémarrage de quelques secondes ne déclenche rien, une connexion refusée non plus. Variable : le nombre de minutes.
 - **Broker revenu** : le broker répond de nouveau après une coupure d'au moins une minute. Variable :
   la durée de la coupure.
 - **Broker redémarré** : la durée de fonctionnement de Mosquitto est revenue à zéro. Il a redémarré
@@ -105,8 +105,8 @@ réglages du widget.
 - **Moins de clients connectés** : moins de clients que le nombre choisi (de 2 à 100) pendant une
   minute : un capteur, un pont ou Zigbee2MQTT a décroché. Se déclenche une fois, puis seulement après
   le retour du nombre de clients. L'intégration compte pour un client.
-- **Pic de messages** : plus de messages reçus par minute que le nombre choisi (de 100 à 50 000) : un
-  appareil qui boucle, une avalanche. Au plus une fois toutes les 30 minutes par seuil.
+- **Pic de messages** : plus de messages publiés par minute que le nombre choisi (de 100 à 50 000) : un
+  appareil qui boucle, une avalanche. Au plus une fois toutes les 30 minutes par seuil ; une avalanche qui dure encore au bout de 30 minutes est signalée de nouveau.
 
 ## Action de scène
 

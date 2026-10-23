@@ -76,7 +76,11 @@ export function registerHandlers(gladys, options = {}) {
   gladys.onWidgetGet(WIDGET.BROKER, (request) => getBrokerWidget(hub, request));
 
   // --- Configuration -------------------------------------------------------------
+  // A configuration saved while the initial getConfig() is in flight wins
+  // over the (older) values it returns.
+  let configUpdates = 0;
   gladys.onConfigUpdated(async (raw) => {
+    configUpdates += 1;
     logger.info('Configuration updated');
     await hub.configure(normalizeConfig(raw));
   });
@@ -84,7 +88,12 @@ export function registerHandlers(gladys, options = {}) {
   // --- Connection lifecycle (the SDK logs the Gladys link itself) -------------
   gladys.on('connected', async () => {
     try {
-      await hub.configure(normalizeConfig(await gladys.getConfig()));
+      const updates = configUpdates;
+      const raw = await gladys.getConfig();
+      if (updates !== configUpdates) {
+        return;
+      }
+      await hub.configure(normalizeConfig(raw));
     } catch (err) {
       logger.error(`Post-connection initialization failed: ${err.message}`);
       await gladys.setConnectionStatus(false, MESSAGES.publishFailed).catch(() => {});

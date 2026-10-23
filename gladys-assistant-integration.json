@@ -555,10 +555,10 @@
         "es": "Mosquitto: pico de mensajes"
       },
       "description": {
-        "en": "More messages received per minute than the chosen number (a device in a loop, a flood). At most once every 30 minutes.",
-        "fr": "Plus de messages reçus par minute que le nombre choisi (un appareil qui boucle, une avalanche). Au plus une fois toutes les 30 minutes.",
-        "de": "Mehr empfangene Nachrichten pro Minute als die gewählte Zahl (ein Gerät in einer Schleife, eine Flut). Höchstens einmal alle 30 Minuten.",
-        "es": "Más mensajes recibidos por minuto que el número elegido (un dispositivo en bucle, una avalancha). Como mucho una vez cada 30 minutos."
+        "en": "More messages published per minute than the chosen number (a device in a loop, a flood). At most once every 30 minutes.",
+        "fr": "Plus de messages publiés par minute que le nombre choisi (un appareil qui boucle, une avalanche). Au plus une fois toutes les 30 minutes.",
+        "de": "Mehr veröffentlichte Nachrichten pro Minute als die gewählte Zahl (ein Gerät in einer Schleife, eine Flut). Höchstens einmal alle 30 Minuten.",
+        "es": "Más mensajes publicados por minuto que el número elegido (un dispositivo en bucle, una avalancha). Como mucho una vez cada 30 minutos."
       },
       "fields": [
         {

@@ -30,14 +30,10 @@ export const SYS_STATS = {
   'clients/connected': { key: 'clientsConnected', parse: number },
   'clients/disconnected': { key: 'clientsDisconnected', parse: number },
   'clients/maximum': { key: 'clientsMaximum', parse: number },
-  'messages/received': { key: 'messagesReceived', parse: number },
-  'messages/sent': { key: 'messagesSent', parse: number },
-  'load/messages/received/1min': { key: 'messagesReceived1min', parse: number },
-  'load/messages/received/5min': { key: 'messagesReceived5min', parse: number },
-  'load/messages/received/15min': { key: 'messagesReceived15min', parse: number },
-  'load/messages/sent/1min': { key: 'messagesSent1min', parse: number },
-  'load/messages/sent/5min': { key: 'messagesSent5min', parse: number },
-  'load/messages/sent/15min': { key: 'messagesSent15min', parse: number },
+  // `load/messages/*` counts every MQTT packet (PINGREQ, SUBSCRIBE, PUBACK…):
+  // the messages users mean are the PUBLISH ones.
+  'load/publish/received/1min': { key: 'messagesReceived1min', parse: number },
+  'load/publish/sent/1min': { key: 'messagesSent1min', parse: number },
   'load/bytes/received/1min': { key: 'bytesReceived1min', parse: number },
   'load/bytes/sent/1min': { key: 'bytesSent1min', parse: number },
   'subscriptions/count': { key: 'subscriptions', parse: number },

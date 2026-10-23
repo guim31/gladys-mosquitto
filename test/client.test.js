@@ -31,7 +31,8 @@ test('the Mosquitto 2.1 capture gives every statistic, the latest value winning'
   assert.equal(stats.uptimeSeconds, 169);
   assert.equal(stats.clientsConnected, 2);
   assert.equal(stats.clientsDisconnected, 0);
-  assert.equal(stats.messagesReceived1min, 83.45);
+  // PUBLISH packets, not every packet (`load/messages/*`: 83.45).
+  assert.equal(stats.messagesReceived1min, 26.3);
   assert.equal(stats.subscriptions, 2);
   assert.equal(stats.retainedMessages, 56);
   assert.equal(stats.heapCurrent, 851675);
@@ -85,6 +86,8 @@ test('the client subscribes to $SYS/broker/# only, read-only, with a clean sessi
   assert.equal(options.password, 'url secret');
   assert.equal(options.clientId, CLIENT_ID);
   assert.equal(options.clean, true);
+  // mqtt.js would never retry after a refusal otherwise.
+  assert.equal(options.reconnectOnConnackError, true);
   assert.equal(options.rejectUnauthorized, false);
   broker.accept();
   broker.replay();
@@ -148,6 +151,23 @@ test('bad credentials are refused, a network error or a closed link is unreachab
     states.map(([state]) => state),
     ['refused', 'connected', 'unreachable'],
   );
+});
+
+test('after a refusal, mqtt.js going offline before its retry is still a refusal', (t) => {
+  const broker = createFakeBroker();
+  const { c } = client(t, broker);
+  const refused = new Error('Connection refused: Bad username or password');
+  refused.code = 4;
+  broker.client.emit('error', refused);
+  broker.client.emit('close');
+  broker.client.emit('offline');
+  assert.equal(c.state, 'refused');
+  // The retry finds no broker at all: now unreachable.
+  broker.client.emit(
+    'error',
+    Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+  );
+  assert.equal(c.state, 'unreachable');
 });
 
 test('stopping the client is not an outage', (t) => {

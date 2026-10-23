@@ -11,7 +11,7 @@ import { readFile } from 'node:fs/promises';
 import { LANGUAGES } from '../src/config.js';
 import { FEATURES } from '../src/devices.js';
 import {
-  ANONYMOUS_USER,
+  SYS_DENIED_ANONYMOUS,
   FEATURE_NAMES,
   MESSAGES,
   REPORT_TEXT,
@@ -161,7 +161,7 @@ test('the message tables of the code have the four languages', () => {
       problems(value, `MESSAGES.${key}`, MAX.message),
     ),
     ...problems(sysDeniedMessages('a-rather-long-user-name'), 'sysDenied', MAX.status_page),
-    ...problems(ANONYMOUS_USER, 'ANONYMOUS_USER', MAX.short),
+    ...problems(SYS_DENIED_ANONYMOUS, 'SYS_DENIED_ANONYMOUS', MAX.status_page),
     ...tableProblems(SUMMARY_TEXT, 'SUMMARY_TEXT', MAX.message, renderFunction),
     ...tableProblems(REPORT_TEXT, 'REPORT_TEXT', MAX.message, renderFunction),
     ...tableProblems(TEXT, 'TEXT', MAX.message, renderFunction),

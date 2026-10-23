@@ -122,12 +122,12 @@ export const MESSAGES = {
   },
 };
 
-// The user name shown in the ACL hint when none is configured (anonymous).
-export const ANONYMOUS_USER = {
-  en: '<user>',
-  fr: '<utilisateur>',
-  de: '<Benutzer>',
-  es: '<usuario>',
+// Anonymous clients: the ACL lines placed before any `user` line apply to them.
+export const SYS_DENIED_ANONYMOUS = {
+  en: 'Connected, but no $SYS statistics. Add "topic read $SYS/#" at the top of the ACL file, before any "user" line, and restart Mosquitto (sys_interval must not be 0).',
+  fr: 'Connecté, mais aucune statistique $SYS. Ajoutez « topic read $SYS/# » en tête du fichier ACL, avant toute ligne « user », et redémarrez Mosquitto (sys_interval ne doit pas valoir 0).',
+  de: 'Verbunden, aber keine $SYS-Statistiken. Füge „topic read $SYS/#“ am Anfang der ACL-Datei ein, vor jeder „user“-Zeile, und starte Mosquitto neu (sys_interval darf nicht 0 sein).',
+  es: 'Conectado, pero sin estadísticas $SYS. Añada «topic read $SYS/#» al principio del archivo ACL, antes de cualquier línea «user», y reinicie Mosquitto (sys_interval no debe ser 0).',
 };
 
 /** The ACL hint of a configuration, in the four languages (connection status). */
@@ -138,7 +138,7 @@ export function sysDeniedMessages(user) {
 /** The ACL hint of a configuration, in a language. */
 export function sysDeniedMessage(user, language) {
   const lang = LANGUAGES.includes(language) ? language : 'en';
-  return MESSAGES.sysDenied[lang](user || ANONYMOUS_USER[lang]);
+  return user ? MESSAGES.sysDenied[lang](user) : SYS_DENIED_ANONYMOUS[lang];
 }
 
 // The "Check the connection" report and the scene sentence.
@@ -149,6 +149,7 @@ export const REPORT_TEXT = {
       `${clients} clients connected, ${received} messages received and ${sent} sent per minute.`,
     uptime: (duration) => `Running for ${duration}.`,
     down: (url) => `${url} cannot be reached.`,
+    pending: (url) => `Still connecting to ${url}: try again in a few seconds.`,
     refused: (url) => `${url} refused the user name or the password.`,
   },
   fr: {
@@ -157,6 +158,7 @@ export const REPORT_TEXT = {
       `${clients} clients connectés, ${received} messages reçus et ${sent} envoyés par minute.`,
     uptime: (duration) => `En marche depuis ${duration}.`,
     down: (url) => `${url} est injoignable.`,
+    pending: (url) => `Connexion à ${url} en cours : réessayez dans quelques secondes.`,
     refused: (url) => `${url} refuse le nom d'utilisateur ou le mot de passe.`,
   },
   de: {
@@ -165,6 +167,7 @@ export const REPORT_TEXT = {
       `${clients} Clients verbunden, ${received} Nachrichten empfangen und ${sent} gesendet pro Minute.`,
     uptime: (duration) => `Läuft seit ${duration}.`,
     down: (url) => `${url} ist nicht erreichbar.`,
+    pending: (url) => `Verbindung mit ${url} läuft noch: Versuche es in ein paar Sekunden erneut.`,
     refused: (url) => `${url} lehnt Benutzername oder Passwort ab.`,
   },
   es: {
@@ -173,6 +176,7 @@ export const REPORT_TEXT = {
       `${clients} clientes conectados, ${received} mensajes recibidos y ${sent} enviados por minuto.`,
     uptime: (duration) => `En marcha desde hace ${duration}.`,
     down: (url) => `No se puede acceder a ${url}.`,
+    pending: (url) => `Conectando todavía con ${url}: vuelva a intentarlo en unos segundos.`,
     refused: (url) => `${url} rechaza el nombre de usuario o la contraseña.`,
   },
 };

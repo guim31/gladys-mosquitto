@@ -76,6 +76,10 @@ export function createBrokerClient({
     reconnectPeriod: RECONNECT_PERIOD_MS,
     connectTimeout: CONNECT_TIMEOUT_MS,
     keepalive: KEEPALIVE_S,
+    // mqtt.js stops retrying after a CONNACK error (bad credentials, server
+    // unavailable): the user fixing Mosquitto must not have to save the
+    // configuration again.
+    reconnectOnConnackError: true,
     // No persistent session: the integration would show in the broker's own
     // "disconnected clients" count each time Gladys restarts.
     clean: true,
@@ -132,12 +136,17 @@ export function createBrokerClient({
   });
 
   client.on('error', (err) => {
+    clearSysTimer();
     setState(isRefusal(err) ? 'refused' : 'unreachable', err?.message);
   });
 
   client.on('offline', () => {
     clearSysTimer();
-    setState('unreachable', 'offline');
+    // After a refusal mqtt.js goes offline before retrying: still a login
+    // problem, until a retry fails otherwise (ECONNREFUSED -> unreachable).
+    if (state !== 'refused') {
+      setState('unreachable', 'offline');
+    }
   });
   client.on('close', () => {
     clearSysTimer();

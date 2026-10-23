@@ -63,7 +63,7 @@ test('adding the broker publishes every state, the version as a text, and refres
   const last = (key) => world.gladys.fake.lastState(featureId(world.gladys, key));
   assert.equal(last('reachable'), 1);
   assert.equal(last('clients_connected'), 2);
-  assert.equal(last('messages_received'), 83);
+  assert.equal(last('messages_received'), 26);
   // Bytes per minute -> bytes per second.
   assert.equal(last('bytes_sent'), 58.3);
   assert.equal(last('uptime'), 0);
@@ -168,21 +168,24 @@ test('a count already low at start is a baseline, not a drop', async (t) => {
 
 test('a message spike fires "messages_above" per threshold, then rests 30 minutes', async (t) => {
   const world = await addedWorld(t);
-  world.broker.sys('load/messages/received/1min', '1500.25');
+  world.broker.sys('load/publish/received/1min', '1500.25');
   await flush();
   assert.deepEqual(
     events(world, 'messages_above').map((event) => event.data.above),
     ['100', '500', '1000'],
   );
   assert.equal(events(world, 'messages_above')[0].data.messages_per_minute, 1500);
-  // Down and up again within the quiet period: nothing more.
-  world.broker.sys('load/messages/received/1min', '50');
-  world.broker.sys('load/messages/received/1min', '150');
+  // Down and up again within the quiet period: nothing yet...
+  world.broker.sys('load/publish/received/1min', '50');
+  world.broker.sys('load/publish/received/1min', '150');
   await flush();
   assert.equal(events(world, 'messages_above').length, 3);
+  // ...but a flood still going on when it ends is reported.
   await tick(t, QUIET_PERIOD_MS);
-  world.broker.sys('load/messages/received/1min', '50');
-  world.broker.sys('load/messages/received/1min', '150');
+  world.broker.sys('load/publish/received/1min', '160');
+  await flush();
+  assert.equal(events(world, 'messages_above').length, 4);
+  world.broker.sys('load/publish/received/1min', '170');
   await flush();
   assert.equal(events(world, 'messages_above').length, 4);
 });
@@ -256,7 +259,7 @@ test('"Check the connection" reports the version and the key numbers', async (t)
   assert.equal(ack.success, true);
   assert.equal(
     ack.data.message.fr,
-    'Connecté à mqtt://broker.example:1883 (Mosquitto 2.1.2). 2 clients connectés, 83 messages reçus et 116 envoyés par minute. En marche depuis 2 minutes.',
+    'Connecté à mqtt://broker.example:1883 (Mosquitto 2.1.2). 2 clients connectés, 26 messages reçus et 91 envoyés par minute. En marche depuis 2 minutes.',
   );
   world.broker.drop();
   const down = await world.gladys.fake.action('check_connection', {});
@@ -268,11 +271,11 @@ test('the scene action gives the sentence and the numbers, and answers when unre
   const ack = await world.gladys.fake.sceneAction('broker_summary', {});
   assert.deepEqual(ack.data.outputs, {
     summary:
-      'Mosquitto 2.1.2 fonctionne depuis 2 minutes, 2 clients connectés, 83 messages reçus et 116 envoyés par minute.',
+      'Mosquitto 2.1.2 fonctionne depuis 2 minutes, 2 clients connectés, 26 messages reçus et 91 envoyés par minute.',
     reachable: true,
     clients_connected: 2,
-    messages_received_per_minute: 83,
-    messages_sent_per_minute: 116,
+    messages_received_per_minute: 26,
+    messages_sent_per_minute: 91,
     uptime_hours: 0,
     version: '2.1.2',
   });
@@ -314,6 +317,98 @@ test('the widget is valid, within budget, and bound to features of the device', 
   });
   const unknown = await world.gladys.fake.widgetGet('broker', { settings: {}, language: 'fr' });
   assert.match(unknown.data.content.components[0].text, /Choisissez le broker/);
+});
+
+test('refused credentials are not an outage: Reachable stays 1, no "unreachable"', async (t) => {
+  const world = await addedWorld(t);
+  world.broker.drop();
+  world.broker.accept();
+  const refused = new Error('Connection refused: Not authorized');
+  refused.code = 5;
+  world.broker.client.emit('error', refused);
+  await flush();
+  for (let i = 0; i < 6; i += 1) {
+    await tick(t, MINUTE);
+  }
+  assert.equal(world.gladys.fake.lastState(featureId(world.gladys, 'reachable')), 1);
+  assert.deepEqual(events(world, 'broker_unreachable'), []);
+  assert.match(world.gladys.fake.connectionStatus.message.en, /refused/);
+});
+
+test('without live statistics only Reachable is published, and no drop is confirmed', async (t) => {
+  const world = await addedWorld(t);
+  world.broker.sys('clients/connected', '6');
+  await tick(t, 30 * SECOND);
+  world.broker.sys('clients/connected', '3');
+  world.broker.drop();
+  world.broker.accept();
+  // The ACL changed: no $SYS any more.
+  await tick(t, 15 * SECOND);
+  assert.equal(world.app.hub.client.state, 'denied');
+  const before = world.gladys.fake.states.length;
+  await tick(t, 3 * MINUTE);
+  assert.deepEqual(events(world, 'clients_below'), []);
+  assert.ok(
+    world.gladys.fake.states
+      .slice(before)
+      .every((state) => state.device_feature_external_id.endsWith(':reachable')),
+  );
+});
+
+test('an anonymous user denied $SYS gets the line for anonymous clients', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: Date.now() });
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  world.broker.accept();
+  await tick(t, 15 * SECOND);
+  assert.match(
+    world.gladys.fake.connectionStatus.message.en,
+    /"topic read \$SYS\/#" at the top of the ACL file, before any "user" line/,
+  );
+});
+
+test('a configuration saved during the start wins, with a single open MQTT client', async () => {
+  const world = await createWorld({ connect: false });
+  let release;
+  const slow = new Promise((resolve) => {
+    release = resolve;
+  });
+  const getConfig = world.gladys.getConfig.bind(world.gladys);
+  world.gladys.getConfig = async () => {
+    const config = await getConfig();
+    await slow;
+    return config;
+  };
+  const connecting = world.gladys.connect();
+  await flush();
+  await world.gladys.fake.configUpdated({ broker_url: 'mqtt://newer.example' });
+  release();
+  await connecting;
+  await flush();
+  // The older values never reach the broker, and one client stays open.
+  assert.ok(world.broker.connections.every((c) => c.url === 'mqtt://newer.example'));
+  assert.equal(world.broker.clients.filter((client) => !client.ended).length, 1);
+  world.app.stop();
+});
+
+test('two overlapping configure() calls open one client only', async () => {
+  const world = await createWorld({ connect: false });
+  const { hub } = world;
+  let release;
+  hub.loadClientId = () =>
+    new Promise((resolve) => {
+      release = () => resolve({ clientId: 'gladys-mosquitto-00000000', persisted: true });
+    });
+  const first = hub.configure({ ...hub.config, broker_url: 'mqtt://a.example', language: 'fr' });
+  const second = hub.configure({ broker_url: 'mqtt://b.example', language: 'fr' });
+  release();
+  await Promise.all([first, second]);
+  assert.deepEqual(
+    world.broker.connections.map((connection) => connection.url),
+    ['mqtt://b.example'],
+  );
+  assert.equal(hub.clientId, 'gladys-mosquitto-00000000');
+  hub.stop();
 });
 
 test('the broker is read-only', async (t) => {
