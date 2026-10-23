@@ -1,61 +1,139 @@
-# Demo Devices Template
+# Mosquitto
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+Watches the health of your **Eclipse Mosquitto** MQTT broker in Gladys: connected clients, message
+rates, traffic, subscriptions, uptime, version, and outages, from the statistics Mosquitto publishes
+on its `$SYS` topics.
 
-## What you get
+This integration is not affiliated with the Eclipse Foundation or the Mosquitto project.
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+## Overview
+
+Gladys already speaks MQTT: its **MQTT** integration connects to a broker to drive your devices
+(including those announced in the Home Assistant format, such as Zigbee2MQTT). It shows no statistics
+of the broker itself. This integration does: it subscribes to `$SYS/broker/#`, read-only, and turns
+what Mosquitto says about itself into a Gladys device, five scene triggers, a scene action and a
+dashboard widget.
+
+It never publishes a message and never subscribes to anything outside `$SYS`. Everything stays on
+your local network.
+
+It can watch the broker Gladys installed for you (the credentials are on the MQTT page of Gladys) as
+well as any other Mosquitto on your network.
+
+## Requirements
+
+- Gladys 5.1 or later.
+- Mosquitto 1.6 or later (tested with 2.1 and 1.6), reachable from Gladys.
+- A Mosquitto user allowed to read `$SYS`, or anonymous access if your broker allows it.
+- `sys_interval` not set to 0 in `mosquitto.conf` (10 seconds by default).
+
+### Give the user read access to $SYS
+
+If your broker uses an ACL file (`acl_file` in `mosquitto.conf`), add these two lines for the user of
+the integration, then restart Mosquitto:
+
+```text
+user gladys
+topic read $SYS/#
+```
+
+Replace `gladys` with your user name. Without them, Mosquitto accepts the connection but sends no
+statistics: the integration page then shows the exact lines to add. Without an ACL file, every user
+can read `$SYS`.
 
 ## Configuration
 
 1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+2. **Broker address**: `mqtt://` followed by the host, and the port if it is not 1883 (for example
+   `mqtt://mosquitto.local:1883`). For TLS, use `mqtts://` (port 8883). WebSocket addresses
+   (`ws://`, `wss://`) work too.
+3. **User name** and **Password**: leave empty for an anonymous broker.
+4. **Accept a self-signed certificate**: only with `mqtts://`, when the certificate of the broker is
+   not signed by a known authority.
+5. **Language of the texts**: the names of the features when the broker is added, the sentence of the
+   scene action and the messages of the action.
+6. Save. The **Mosquitto** device appears in the **Discovery** tab once the first statistics arrived
+   (within a second): add it.
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+The **Check the connection** button tells whether the broker answers, whether the user may read
+`$SYS`, and shows the version and the key numbers.
 
-## Actions
+The integration connects with a client id drawn once and kept (`gladys-mosquitto-` followed by eight
+characters), and a clean session: it does not count among the disconnected persistent clients when
+Gladys restarts.
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+## The broker device
 
-## Scenes
+| Feature                         | Meaning                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| Reachable                       | 1 while the integration is connected to the broker, 0 otherwise          |
+| Connected clients               | Clients connected right now, **this integration included**               |
+| Disconnected persistent clients | Clients with a persistent session (`clean session` off) that are offline |
+| Messages received (/min)        | Messages received by the broker per minute (1-minute moving average)     |
+| Messages sent (/min)            | Messages sent by the broker per minute                                   |
+| Incoming traffic                | Bytes received per second (1-minute moving average)                      |
+| Outgoing traffic                | Bytes sent per second                                                    |
+| Subscriptions                   | Active subscriptions                                                     |
+| Retained messages               | Retained messages kept by the broker                                     |
+| Uptime                          | Time since Mosquitto started, in days                                    |
+| Version                         | Version of Mosquitto, as text                                            |
+| Memory used                     | Memory used by Mosquitto, when it reports it (not the 1.6 Docker image)  |
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
+A feature only exists if Mosquitto publishes its topic: some builds have no memory figure. When the
+broker cannot be reached, **Reachable** goes to 0 and the other features keep their last value.
 
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+Mosquitto refreshes its statistics every `sys_interval` seconds; Gladys receives the changed values
+at most every 30 seconds, and **Reachable** at once.
 
-## Dashboard
+## Dashboard widget
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+The **Mosquitto broker** widget shows the state of the broker (online, unreachable, login refused, no
+`$SYS` statistics), its version and uptime, then four live tiles: connected clients, messages
+received and sent per minute, subscriptions. Pick the broker in the widget settings.
+
+## Scene triggers
+
+- **Broker unreachable**: the broker has been unreachable for 1, 5, 15, 30 or 60 minutes (to choose).
+  A restart of a few seconds fires nothing. Variable: the number of minutes.
+- **Broker back**: the broker answers again after an outage of at least one minute. Variable: the
+  duration of the outage.
+- **Broker restarted**: the uptime of Mosquitto went back to zero. It restarted (update, reboot) or
+  crashed, even if no outage was seen. Variable: the version.
+- **Fewer connected clients**: fewer clients than the chosen number (2 to 100) for one minute: a
+  sensor, a bridge or Zigbee2MQTT dropped. Fires once, and again only after the count came back.
+  Remember that the integration counts as one client.
+- **Message spike**: more messages received per minute than the chosen number (100 to 50,000): a
+  device in a loop, a flood. At most once every 30 minutes per threshold.
+
+## Scene action
+
+**Broker summary** gives a ready-made sentence, for example "Mosquitto 2.1.2 has been running for 3
+days, 12 clients connected, 64 messages received and 87 sent per minute.", and its numbers: reachable,
+connected clients, messages received and sent per minute, uptime in hours, version.
+
+## Scene ideas
+
+- **Zigbee2MQTT dropped**: trigger "Fewer connected clients" below 5, action "Send a message" with the
+  number of clients, to check Zigbee2MQTT.
+- **Broker down**: trigger "Broker unreachable" for 5 minutes, action "Send a message" — the lights
+  and sensors driven over MQTT no longer answer.
+- **Weekly report**: every Sunday at 9:00, action "Broker summary", then "Send a message" with its
+  sentence.
 
 ## Troubleshooting
 
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+- **"Connected, but no $SYS statistics"**: the ACL does not let the user read `$SYS`. Add
+  `topic read $SYS/#` under the user in the ACL file (see Requirements), or check that
+  `sys_interval` is not 0, then restart Mosquitto.
+- **"Mosquitto refused the connection"**: wrong user name or password, or anonymous access disabled.
+- **"The Mosquitto broker cannot be reached"**: check the address and the port, that Mosquitto
+  listens on the network (`listener 1883` in Mosquitto 2, which only listens locally without it), and
+  for `mqtts://` the certificate (or tick "Accept a self-signed certificate").
+- More details in the integration logs; `LOG_LEVEL=debug` shows every step.
+
+## Limits
+
+- One broker per installation of the integration.
+- Mosquitto only: other brokers (EMQX, VerneMQ, HiveMQ) publish different `$SYS` topics, or none.
+- The rates are the moving averages computed by Mosquitto itself.
+- A broker bridged to others shows its own figures only.

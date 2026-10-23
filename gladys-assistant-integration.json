@@ -1,177 +1,799 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Mosquitto",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "The health of your Mosquitto MQTT broker in Gladys: clients, message rates, uptime, outages.",
+    "fr": "La santé de votre broker MQTT Mosquitto dans Gladys : clients, débit de messages, pannes.",
+    "de": "Der Zustand deines Mosquitto-MQTT-Brokers in Gladys: Clients, Nachrichtenrate, Ausfälle.",
+    "es": "La salud de su broker MQTT Mosquitto en Gladys: clientes, mensajes por minuto, caídas."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-mosquitto:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-mosquitto/main/cover.png",
+  "categories": ["network"],
+  "transports": ["local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Connect Mosquitto",
+        "fr": "Connecter Mosquitto",
+        "de": "Mosquitto verbinden",
+        "es": "Conectar Mosquitto"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "The integration reads the statistics Mosquitto publishes on $SYS/broker/#. It only subscribes, never publishes. The user needs read access to $SYS in the ACL file.",
+        "fr": "L'intégration lit les statistiques que Mosquitto publie sur $SYS/broker/#. Elle s'abonne seulement, sans jamais publier. L'utilisateur doit pouvoir lire $SYS dans le fichier ACL.",
+        "de": "Die Integration liest die Statistiken, die Mosquitto unter $SYS/broker/# veröffentlicht. Die Integration abonniert nur und veröffentlicht nie. Der Benutzer braucht in der ACL-Datei Lesezugriff auf $SYS.",
+        "es": "La integración lee las estadísticas que Mosquitto publica en $SYS/broker/#. Solo se suscribe, nunca publica. El usuario necesita acceso de lectura a $SYS en el archivo ACL."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://mosquitto.org/man/mosquitto-8.html",
+          "label": {
+            "en": "The $SYS topics of Mosquitto",
+            "fr": "Les sujets $SYS de Mosquitto",
+            "de": "Die $SYS-Topics von Mosquitto",
+            "es": "Los temas $SYS de Mosquitto"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
+      "key": "broker_url",
+      "type": "string",
       "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "label": {
+        "en": "Broker address",
+        "fr": "Adresse du broker",
+        "de": "Adresse des Brokers",
+        "es": "Dirección del broker"
+      },
+      "description": {
+        "en": "mqtt:// (port 1883) or mqtts:// for TLS (port 8883). The broker installed by Gladys works too: its credentials are on the MQTT page of Gladys.",
+        "fr": "mqtt:// (port 1883) ou mqtts:// pour TLS (port 8883). Le broker installé par Gladys convient aussi : ses identifiants sont sur la page MQTT de Gladys.",
+        "de": "mqtt:// (Port 1883) oder mqtts:// für TLS (Port 8883). Der von Gladys installierte Broker geht auch: Seine Zugangsdaten stehen auf der MQTT-Seite von Gladys.",
+        "es": "mqtt:// (puerto 1883) o mqtts:// para TLS (puerto 8883). El broker instalado por Gladys también sirve: sus credenciales están en la página MQTT de Gladys."
+      },
+      "placeholder": {
+        "en": "e.g. mqtt://mosquitto.local:1883",
+        "fr": "ex. mqtt://mosquitto.local:1883",
+        "de": "z. B. mqtt://mosquitto.local:1883",
+        "es": "p. ej. mqtt://mosquitto.local:1883"
+      }
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "key": "username",
+      "type": "string",
+      "label": {
+        "en": "User name",
+        "fr": "Nom d'utilisateur",
+        "de": "Benutzername",
+        "es": "Nombre de usuario"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "description": {
+        "en": "Leave empty if the broker accepts anonymous clients.",
+        "fr": "Laissez vide si le broker accepte les clients anonymes.",
+        "de": "Leer lassen, wenn der Broker anonyme Clients zulässt.",
+        "es": "Déjelo vacío si el broker acepta clientes anónimos."
+      }
     },
     {
-      "key": "unit",
+      "key": "password",
+      "type": "secret",
+      "label": {
+        "en": "Password",
+        "fr": "Mot de passe",
+        "de": "Passwort",
+        "es": "Contraseña"
+      }
+    },
+    {
+      "key": "tls_insecure",
+      "type": "boolean",
+      "default": false,
+      "label": {
+        "en": "Accept a self-signed certificate",
+        "fr": "Accepter un certificat auto-signé",
+        "de": "Selbstsigniertes Zertifikat akzeptieren",
+        "es": "Aceptar un certificado autofirmado"
+      },
+      "description": {
+        "en": "mqtts:// only: the certificate of the broker is then not checked.",
+        "fr": "mqtts:// seulement : le certificat du broker n'est alors pas vérifié.",
+        "de": "Nur mqtts://: Das Zertifikat des Brokers wird dann nicht geprüft.",
+        "es": "Solo mqtts://: el certificado del broker no se comprueba."
+      }
+    },
+    {
+      "key": "language",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
-      "required": false,
-      "default": "celsius",
-      "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
-      ]
-    },
-    {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
-      "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+      "default": "fr",
+      "label": {
+        "en": "Language of the texts",
+        "fr": "Langue des textes",
+        "de": "Sprache der Texte",
+        "es": "Idioma de los textos"
       },
-      "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "description": {
+        "en": "Feature names of the broker when it is added, scene sentences and action messages.",
+        "fr": "Noms des fonctionnalités du broker à son ajout, phrases des scènes et messages des actions.",
+        "de": "Namen der Funktionen des Brokers beim Hinzufügen, Szenen-Sätze und Meldungen der Aktionen.",
+        "es": "Nombres de las funciones del broker al añadirlo, frases de escenas y mensajes de las acciones."
+      },
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
+      "key": "check_connection",
+      "timeout_seconds": 10,
+      "label": {
+        "en": "Check the connection",
+        "fr": "Vérifier la connexion",
+        "de": "Verbindung prüfen",
+        "es": "Comprobar la conexión"
+      },
+      "description": {
+        "en": "Tells whether the broker answers and lets the user read $SYS, with its version and key numbers.",
+        "fr": "Indique si le broker répond et laisse l'utilisateur lire $SYS, avec sa version et ses chiffres clés.",
+        "de": "Zeigt, ob der Broker antwortet und dem Benutzer $SYS zu lesen erlaubt, mit Version und Kennzahlen.",
+        "es": "Indica si el broker responde y permite al usuario leer $SYS, con su versión y sus cifras clave."
+      }
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "broker_unreachable",
+      "label": {
+        "en": "Mosquitto: broker unreachable",
+        "fr": "Mosquitto : broker injoignable",
+        "de": "Mosquitto: Broker nicht erreichbar",
+        "es": "Mosquitto: broker inaccesible"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "The broker has been unreachable for the chosen time. A restart of a few seconds fires nothing.",
+        "fr": "Le broker est injoignable depuis la durée choisie. Un redémarrage de quelques secondes ne déclenche rien.",
+        "de": "Der Broker ist seit der gewählten Dauer nicht erreichbar. Ein Neustart von wenigen Sekunden löst nichts aus.",
+        "es": "El broker está inaccesible desde hace el tiempo elegido. Un reinicio de unos segundos no activa nada."
       },
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
+          "label": {
+            "en": "Broker",
+            "fr": "Broker",
+            "de": "Broker",
+            "es": "Broker"
+          }
         },
         {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "key": "after_minutes",
+          "type": "select",
+          "required": true,
+          "default": "5",
+          "label": {
+            "en": "Unreachable for",
+            "fr": "Injoignable depuis",
+            "de": "Nicht erreichbar seit",
+            "es": "Inaccesible desde hace"
+          },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "1",
+              "label": {
+                "en": "1 minute",
+                "fr": "1 minute",
+                "de": "1 Minute",
+                "es": "1 minuto"
+              }
+            },
+            {
+              "value": "5",
+              "label": {
+                "en": "5 minutes",
+                "fr": "5 minutes",
+                "de": "5 Minuten",
+                "es": "5 minutos"
+              }
+            },
+            {
+              "value": "15",
+              "label": {
+                "en": "15 minutes",
+                "fr": "15 minutes",
+                "de": "15 Minuten",
+                "es": "15 minutos"
+              }
+            },
+            {
+              "value": "30",
+              "label": {
+                "en": "30 minutes",
+                "fr": "30 minutes",
+                "de": "30 Minuten",
+                "es": "30 minutos"
+              }
+            },
+            {
+              "value": "60",
+              "label": {
+                "en": "60 minutes",
+                "fr": "60 minutes",
+                "de": "60 Minuten",
+                "es": "60 minutos"
+              }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "minutes",
+          "type": "number",
+          "label": {
+            "en": "Minutes without the broker",
+            "fr": "Minutes sans le broker",
+            "de": "Minuten ohne den Broker",
+            "es": "Minutos sin el broker"
+          }
+        },
+        {
+          "key": "broker",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Broker name",
+            "fr": "Nom du broker",
+            "de": "Name des Brokers",
+            "es": "Nombre del broker"
+          }
+        }
+      ]
+    },
+    {
+      "key": "broker_back",
+      "label": {
+        "en": "Mosquitto: broker back",
+        "fr": "Mosquitto : broker revenu",
+        "de": "Mosquitto: Broker wieder da",
+        "es": "Mosquitto: broker de vuelta"
+      },
+      "description": {
+        "en": "The broker answers again after an outage of at least one minute.",
+        "fr": "Le broker répond de nouveau après une coupure d'au moins une minute.",
+        "de": "Der Broker antwortet wieder nach einem Ausfall von mindestens einer Minute.",
+        "es": "El broker vuelve a responder tras una caída de al menos un minuto."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Broker",
+            "fr": "Broker",
+            "de": "Broker",
+            "es": "Broker"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "offline_minutes",
+          "type": "number",
+          "label": {
+            "en": "Outage duration (minutes)",
+            "fr": "Durée de la coupure (minutes)",
+            "de": "Dauer des Ausfalls (Minuten)",
+            "es": "Duración de la caída (minutos)"
+          }
+        },
+        {
+          "key": "broker",
+          "type": "string",
+          "label": {
+            "en": "Broker name",
+            "fr": "Nom du broker",
+            "de": "Name des Brokers",
+            "es": "Nombre del broker"
+          }
+        }
+      ]
+    },
+    {
+      "key": "broker_restarted",
+      "label": {
+        "en": "Mosquitto: broker restarted",
+        "fr": "Mosquitto : broker redémarré",
+        "de": "Mosquitto: Broker neu gestartet",
+        "es": "Mosquitto: broker reiniciado"
+      },
+      "description": {
+        "en": "The uptime of Mosquitto went back to zero: it restarted or crashed, even without a visible outage.",
+        "fr": "La durée de fonctionnement de Mosquitto est revenue à zéro : il a redémarré ou planté, même sans coupure visible.",
+        "de": "Die Laufzeit von Mosquitto ist auf null zurückgegangen: Er wurde neu gestartet oder ist abgestürzt, auch ohne sichtbaren Ausfall.",
+        "es": "El tiempo en marcha de Mosquitto volvió a cero: se reinició o falló, incluso sin caída visible."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Broker",
+            "fr": "Broker",
+            "de": "Broker",
+            "es": "Broker"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "version",
+          "type": "string",
+          "label": {
+            "en": "Mosquitto version",
+            "fr": "Version de Mosquitto",
+            "de": "Version von Mosquitto",
+            "es": "Versión de Mosquitto"
+          }
+        },
+        {
+          "key": "broker",
+          "type": "string",
+          "label": {
+            "en": "Broker name",
+            "fr": "Nom du broker",
+            "de": "Name des Brokers",
+            "es": "Nombre del broker"
+          }
+        }
+      ]
+    },
+    {
+      "key": "clients_below",
+      "label": {
+        "en": "Mosquitto: fewer connected clients",
+        "fr": "Mosquitto : moins de clients connectés",
+        "de": "Mosquitto: Weniger verbundene Clients",
+        "es": "Mosquitto: menos clientes conectados"
+      },
+      "description": {
+        "en": "Fewer clients than the chosen number for a minute: a sensor, a bridge or Zigbee2MQTT dropped. The integration counts as one client.",
+        "fr": "Moins de clients que le nombre choisi pendant une minute : un capteur, un pont ou Zigbee2MQTT a décroché. L'intégration compte pour un client.",
+        "de": "Weniger Clients als die gewählte Zahl während einer Minute: Ein Sensor, eine Bridge oder Zigbee2MQTT ist weg. Die Integration zählt als ein Client.",
+        "es": "Menos clientes que el número elegido durante un minuto: un sensor, un puente o Zigbee2MQTT se desconectó. La integración cuenta como un cliente."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Broker",
+            "fr": "Broker",
+            "de": "Broker",
+            "es": "Broker"
+          }
+        },
+        {
+          "key": "below",
+          "type": "select",
+          "required": true,
+          "default": "5",
+          "label": {
+            "en": "Fewer than",
+            "fr": "Moins de",
+            "de": "Weniger als",
+            "es": "Menos de"
+          },
+          "options": [
+            {
+              "value": "2",
+              "label": {
+                "en": "2 clients",
+                "fr": "2 clients",
+                "de": "2 Clients",
+                "es": "2 clientes"
+              }
+            },
+            {
+              "value": "3",
+              "label": {
+                "en": "3 clients",
+                "fr": "3 clients",
+                "de": "3 Clients",
+                "es": "3 clientes"
+              }
+            },
+            {
+              "value": "4",
+              "label": {
+                "en": "4 clients",
+                "fr": "4 clients",
+                "de": "4 Clients",
+                "es": "4 clientes"
+              }
+            },
+            {
+              "value": "5",
+              "label": {
+                "en": "5 clients",
+                "fr": "5 clients",
+                "de": "5 Clients",
+                "es": "5 clientes"
+              }
+            },
+            {
+              "value": "10",
+              "label": {
+                "en": "10 clients",
+                "fr": "10 clients",
+                "de": "10 Clients",
+                "es": "10 clientes"
+              }
+            },
+            {
+              "value": "15",
+              "label": {
+                "en": "15 clients",
+                "fr": "15 clients",
+                "de": "15 Clients",
+                "es": "15 clientes"
+              }
+            },
+            {
+              "value": "20",
+              "label": {
+                "en": "20 clients",
+                "fr": "20 clients",
+                "de": "20 Clients",
+                "es": "20 clientes"
+              }
+            },
+            {
+              "value": "30",
+              "label": {
+                "en": "30 clients",
+                "fr": "30 clients",
+                "de": "30 Clients",
+                "es": "30 clientes"
+              }
+            },
+            {
+              "value": "50",
+              "label": {
+                "en": "50 clients",
+                "fr": "50 clients",
+                "de": "50 Clients",
+                "es": "50 clientes"
+              }
+            },
+            {
+              "value": "100",
+              "label": {
+                "en": "100 clients",
+                "fr": "100 clients",
+                "de": "100 Clients",
+                "es": "100 clientes"
+              }
+            }
+          ]
+        }
+      ],
+      "variables": [
+        {
+          "key": "clients",
+          "type": "number",
+          "label": {
+            "en": "Connected clients",
+            "fr": "Clients connectés",
+            "de": "Verbundene Clients",
+            "es": "Clientes conectados"
+          }
+        },
+        {
+          "key": "broker",
+          "type": "string",
+          "label": {
+            "en": "Broker name",
+            "fr": "Nom du broker",
+            "de": "Name des Brokers",
+            "es": "Nombre del broker"
+          }
+        }
+      ]
+    },
+    {
+      "key": "messages_above",
+      "label": {
+        "en": "Mosquitto: message spike",
+        "fr": "Mosquitto : pic de messages",
+        "de": "Mosquitto: Nachrichtenspitze",
+        "es": "Mosquitto: pico de mensajes"
+      },
+      "description": {
+        "en": "More messages received per minute than the chosen number (a device in a loop, a flood). At most once every 30 minutes.",
+        "fr": "Plus de messages reçus par minute que le nombre choisi (un appareil qui boucle, une avalanche). Au plus une fois toutes les 30 minutes.",
+        "de": "Mehr empfangene Nachrichten pro Minute als die gewählte Zahl (ein Gerät in einer Schleife, eine Flut). Höchstens einmal alle 30 Minuten.",
+        "es": "Más mensajes recibidos por minuto que el número elegido (un dispositivo en bucle, una avalancha). Como mucho una vez cada 30 minutos."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Broker",
+            "fr": "Broker",
+            "de": "Broker",
+            "es": "Broker"
+          }
+        },
+        {
+          "key": "above",
+          "type": "select",
+          "required": true,
+          "default": "1000",
+          "label": {
+            "en": "More than",
+            "fr": "Plus de",
+            "de": "Mehr als",
+            "es": "Más de"
+          },
+          "options": [
+            {
+              "value": "100",
+              "label": {
+                "en": "100 / min",
+                "fr": "100 / min",
+                "de": "100 / min",
+                "es": "100 / min"
+              }
+            },
+            {
+              "value": "500",
+              "label": {
+                "en": "500 / min",
+                "fr": "500 / min",
+                "de": "500 / min",
+                "es": "500 / min"
+              }
+            },
+            {
+              "value": "1000",
+              "label": {
+                "en": "1,000 / min",
+                "fr": "1 000 / min",
+                "de": "1.000 / min",
+                "es": "1.000 / min"
+              }
+            },
+            {
+              "value": "2000",
+              "label": {
+                "en": "2,000 / min",
+                "fr": "2 000 / min",
+                "de": "2.000 / min",
+                "es": "2.000 / min"
+              }
+            },
+            {
+              "value": "5000",
+              "label": {
+                "en": "5,000 / min",
+                "fr": "5 000 / min",
+                "de": "5.000 / min",
+                "es": "5.000 / min"
+              }
+            },
+            {
+              "value": "10000",
+              "label": {
+                "en": "10,000 / min",
+                "fr": "10 000 / min",
+                "de": "10.000 / min",
+                "es": "10.000 / min"
+              }
+            },
+            {
+              "value": "50000",
+              "label": {
+                "en": "50,000 / min",
+                "fr": "50 000 / min",
+                "de": "50.000 / min",
+                "es": "50.000 / min"
+              }
+            }
+          ]
+        }
+      ],
+      "variables": [
+        {
+          "key": "messages_per_minute",
+          "type": "number",
+          "label": {
+            "en": "Messages received per minute",
+            "fr": "Messages reçus par minute",
+            "de": "Empfangene Nachrichten pro Minute",
+            "es": "Mensajes recibidos por minuto"
+          }
+        },
+        {
+          "key": "broker",
+          "type": "string",
+          "label": {
+            "en": "Broker name",
+            "fr": "Nom du broker",
+            "de": "Name des Brokers",
+            "es": "Nombre del broker"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "broker_summary",
+      "timeout_seconds": 10,
+      "label": {
+        "en": "Mosquitto: broker summary",
+        "fr": "Mosquitto : état du broker",
+        "de": "Mosquitto: Zustand des Brokers",
+        "es": "Mosquitto: estado del broker"
       },
-      "timeout_seconds": 15,
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
+      "description": {
+        "en": "The state of the broker as a sentence ready for a message, with its numbers.",
+        "fr": "L'état du broker en une phrase prête pour un message, avec ses chiffres.",
+        "de": "Der Zustand des Brokers als Satz für eine Nachricht, mit seinen Zahlen.",
+        "es": "El estado del broker en una frase lista para un mensaje, con sus cifras."
+      },
       "outputs": [
         {
-          "key": "signalled",
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Summary sentence",
+            "fr": "Phrase de synthèse",
+            "de": "Zusammenfassung",
+            "es": "Frase de resumen"
+          }
+        },
+        {
+          "key": "reachable",
           "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "label": {
+            "en": "Reachable",
+            "fr": "Joignable",
+            "de": "Erreichbar",
+            "es": "Accesible"
+          }
+        },
+        {
+          "key": "clients_connected",
+          "type": "number",
+          "label": {
+            "en": "Connected clients",
+            "fr": "Clients connectés",
+            "de": "Verbundene Clients",
+            "es": "Clientes conectados"
+          }
+        },
+        {
+          "key": "messages_received_per_minute",
+          "type": "number",
+          "label": {
+            "en": "Messages received per minute",
+            "fr": "Messages reçus par minute",
+            "de": "Empfangene Nachrichten pro Minute",
+            "es": "Mensajes recibidos por minuto"
+          }
+        },
+        {
+          "key": "messages_sent_per_minute",
+          "type": "number",
+          "label": {
+            "en": "Messages sent per minute",
+            "fr": "Messages envoyés par minute",
+            "de": "Gesendete Nachrichten pro Minute",
+            "es": "Mensajes enviados por minuto"
+          }
+        },
+        {
+          "key": "uptime_hours",
+          "type": "number",
+          "label": {
+            "en": "Uptime (hours)",
+            "fr": "Durée de fonctionnement (heures)",
+            "de": "Laufzeit (Stunden)",
+            "es": "Tiempo en marcha (horas)"
+          }
+        },
+        {
+          "key": "version",
+          "type": "string",
+          "label": {
+            "en": "Mosquitto version",
+            "fr": "Version de Mosquitto",
+            "de": "Version von Mosquitto",
+            "es": "Versión de Mosquitto"
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "broker",
+      "icon": "radio",
+      "label": {
+        "en": "Mosquitto broker",
+        "fr": "Broker Mosquitto",
+        "de": "Mosquitto-Broker",
+        "es": "Broker Mosquitto"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "State of the Mosquitto broker and its key numbers.",
+        "fr": "État du broker Mosquitto et ses chiffres clés.",
+        "de": "Zustand des Mosquitto-Brokers und seine Kennzahlen.",
+        "es": "Estado del broker Mosquitto y sus cifras clave."
+      },
+      "settings": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Broker",
+            "fr": "Broker",
+            "de": "Broker",
+            "es": "Broker"
+          },
+          "required": true
+        }
+      ]
     }
   ]
 }
