@@ -31,15 +31,20 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+index.js                          SDK wiring only (src/app.js registers the handlers)
+src/app.js                        handlers: discovery, action, scene action, widget, config
+src/hub.js                        link state, $SYS statistics, throttled states, scene events, clock
+src/devices.js                    the broker device: features (keys are forever) and states
+src/triggers.js                   outages, restarts, clients thresholds, message spikes
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/widgets.js                    dashboard widget handler (manifest `widgets`)
+src/i18n.js                       every text, en/fr/de/es
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+src/clientId.js                   stable MQTT client id, kept in /data/client-id
+src/mosquitto/sys.js              $SYS/broker/# topics -> statistics
+src/mosquitto/client.js           MQTT client (mqtt.js): link states, ACL denial detection
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
+docs/en.md, fr.md, de.md, es.md   user documentation, re-hosted by Gladys (mandatory)
 test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
@@ -70,8 +75,9 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German and Spanish: action
+  messages, manifest texts, widget texts, feature names, and the four docs
+  `docs/{en,fr,de,es}.md`, kept in sync (`test/i18n.test.js`).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -233,3 +239,50 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## Mosquitto (propre à cette intégration)
+
+Vérifié le 23/10/2026 contre `eclipse-mosquitto:2` (2.1.2) et `eclipse-mosquitto:1.6` (1.6.15) en
+Docker, avec fichier de mots de passe et ACL (captures dans `test/fixtures/sys/`).
+
+- **ACL refusant `$SYS`** : Mosquitto (2.1 comme 1.6) **accorde** l'abonnement (SUBACK 0, pas 128)
+  puis ne livre rien. Le seul signe est le silence : les sujets `$SYS` étant **retenus**, un abonné
+  autorisé les reçoit tous en moins d'une seconde ; sans aucun message après `SYS_WAIT_MS` (15 s),
+  l'état est `denied` et la page de l'intégration donne les lignes d'ACL. Même symptôme avec
+  `sys_interval 0`. Un SUBACK ≥ 128 (autres brokers, v5) est traité pareil.
+- Après la rafale initiale, Mosquitto ne republie **que les valeurs qui changent** (une
+  `clients/maximum` n'apparaît qu'au premier changement) : la découverte attend 2 s après le dernier
+  sujet nouveau, et le battement de cœur (6 h) vient du cache du SDK, pas du broker.
+- **Mosquitto 1.6 réel** : à l'abonnement, seuls une partie des sujets arrivent (pas
+  `load/publish/received/1min` ni `clients/disconnected` quand ils valent 0 depuis longtemps) ; ils
+  viennent à leur premier changement, et l'appareil déjà ajouté se complète par « Mettre à jour ».
+  La capture `mosquitto-1.6.15.txt`, prise au démarrage du broker, les contient tous.
+- `heap/*` absent de l'image 1.6 ; `heap/current size` (1.4 et avant) est lu comme `heap/current`.
+  Les valeurs sont du texte : `"169 seconds"`, `"83.45"`, `"mosquitto version 2.1.2"`.
+- `load/*/1min` sont des moyennes glissantes **par minute**. **`load/messages/*` compte tous les
+  paquets MQTT** (PINGREQ, SUBSCRIBE, PUBACK…) : 83 « messages » pour 26 PUBLISH dans la capture 2.1.
+  Les fonctionnalités « Messages » lisent donc `load/publish/received|sent/1min` (présents en 1.6
+  aussi). Octets convertis en octets par seconde.
+- **mqtt.js ne se reconnecte plus après un CONNACK en erreur** (mauvais mot de passe, serveur
+  indisponible) sauf avec `reconnectOnConnackError: true` : sans lui, corriger Mosquitto ne suffisait
+  pas, il fallait réenregistrer la configuration. Il passe `offline` avant chaque nouvel essai :
+  l'état `refused` n'est pas écrasé par `unreachable` (sinon il clignote).
+- Une connexion refusée n'est **pas une panne** : « Joignable » reste à 1 (le broker répond) et
+  « Broker injoignable » ne part pas. Sans statistiques vivantes (`denied`, `refused`), seul
+  « Joignable » est publié : les chiffres vieillissent dans Gladys au lieu d'être republiés frais.
+- `configure()` capture sa génération **avant** tout `await` (lecture de `/data/client-id`) : sans
+  cela, deux appels au démarrage ouvraient deux clients au même identifiant, que Mosquitto
+  déconnectait tour à tour. Le `getConfig()` initial cède devant un `onConfigUpdated` arrivé pendant.
+- `clients/connected` **compte l'intégration** : pas de seuil « moins de 1 » ; le déclencheur exige
+  une minute sous le seuil (`CONFIRM_MS`) pour ignorer les reconnexions Wi-Fi.
+- Redémarrage détecté par une **baisse de `uptime`** ; après un changement d'adresse du broker, le
+  suivi est remis à zéro (la nouvelle durée n'est pas un redémarrage).
+- Identifiant client tiré une fois (`/data/client-id`) et session propre (`clean: true`) : sinon
+  chaque redémarrage de Gladys ajouterait un « client persistant déconnecté ».
+- **`setConnectionStatus` veut un objet multilingue** `{ en, fr, de, es }` (`en` obligatoire), pas
+  une chaîne : le cœur 5.2.0 répond 400 (`message: must be an object…`), et le SDK ne dit rien si
+  l'erreur est avalée. La page choisit la langue du lecteur.
+- Mosquitto 2 sans `listener 1883` n'écoute qu'en local : c'est la première cause d'« injoignable »
+  (dit dans la doc).
+- Test Docker : broker + clients `mosquitto_pub`/`mosquitto_sub` sur le réseau `gladys-test-mosquitto`,
+  intégration lancée dans le conteneur verrouillé contre le faux Gladys (voir le rapport de la PR).
