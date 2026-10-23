@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-23
+
 ### Added
 
 - The Mosquitto broker as a Gladys device, from its `$SYS` statistics: reachable, connected clients,
@@ -23,3 +25,6 @@ the notes of the version's GitHub Release.
   `$SYS`.
 - Read-only MQTT client: `$SYS/broker/#` only, stable client id, clean session, optional TLS.
 - English, French, German and Spanish texts and documentation.
+
+[Unreleased]: https://github.com/guim31/gladys-mosquitto/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-mosquitto/releases/tag/v1.0.0
